@@ -8,3 +8,5 @@ The blender file needs to have 3 collections:
 - Animations
 - Meshes
 
+The release ZIP file contains directories for 50, 60, 70, 80 and 90%.
+Copy the content of that directory to the Content\Core\Characters folder and overwrite the existing assets.
