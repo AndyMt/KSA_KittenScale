@@ -1,0 +1,504 @@
+import bpy
+import time
+
+
+scale_percent = 90
+scale_factor = scale_percent / 100.0
+
+#----------------------------------------------------------------
+def GetBaseName(name):
+    return name.removesuffix('.glb').removesuffix('.gltf')
+
+#----------------------------------------------------------------
+def SelectFile():
+    #return bpy.ops.wm.path_open(filepath="D:\\Projects\\KSA\\Orig")
+    bpy.ops.wm.fileselect_add(
+        filepath="",  # Initial path (empty for default)
+        filename="",  # Initial filename (empty for default)
+        directory="", # Initial directory (empty for default)
+        filter_glob="*.txt;*.csv",  # Filter for specific file types
+        title="Select a File"  # Title of the dialog
+    )
+
+#----------------------------------------------------------------
+def ImportFileIntoCollection(collection_name, directory, filename):
+
+    # Set the active collection (selected in the outliner)
+    bpy.context.view_layer.active_layer_collection = bpy.context.view_layer.layer_collection.children[collection_name]
+
+    active_collection = bpy.context.view_layer.active_layer_collection.collection
+    print(f"c {active_collection} {active_collection.name}")
+
+    print(filename)
+    # Import the GLB file
+    #    bpy.ops.import_scene.gltf(filepath=directory+"\\"+filename, directory=directory, files=[{"name":filename}], loglevel=20)
+    bpy.ops.import_scene.gltf(filepath=directory+"\\"+filename)
+
+    # Get the newly imported objects
+    imported_objects = bpy.context.selected_objects
+
+    # Link imported objects to the active collection and rename
+    bpy.ops.object.select_all(action='DESELECT')
+    objEmpty = 0
+    objArmature = 0
+    objMesh = 0
+    print(f"imported_objects: {imported_objects}")
+    for obj in imported_objects:
+        print(f"o {obj.name}: {obj.type}")
+        #rename object to filename
+        if (obj.type == "EMPTY" and obj.name != "CutUpGeometry"):
+            obj.name = filename
+            objEmpty = obj
+        if (obj.type == "MESH"):
+            objMesh = obj
+        if (obj.type == "ARMATURE"):
+            obj.name = GetBaseName(filename)
+            obj.data.name = GetBaseName(filename)
+            objArmature = obj
+        obj.select_set(True)        
+
+    # import didn't create empty parent node?
+    if not objEmpty and objMesh:
+        objMesh.name = filename
+        print(f"empty {objMesh}: {objMesh.type}")
+        
+    if not objEmpty and objArmature:
+        objArmature.name = filename
+        print(f"empty {objArmature}: {objArmature.type}")
+
+    if False and not objEmpty and objArmature:
+        bpy.ops.object.empty_add()        
+        objEmpty = bpy.context.active_object
+        print(f"empty {objEmpty}: {objEmpty.type}")
+        objEmpty.name = filename
+        objEmpty.scale = 0.01, 0.01, 0.01
+        objArmature.parent = objEmpty
+        
+        
+    print(f"Imported {len(imported_objects)} objects into '{active_collection.name}'")
+    return bpy.data.objects[filename]
+
+
+#----------------------------------------------------------------
+def ScaleBones():
+    rig_name = bpy.context.active_object.name
+    print (f"scaling selected [{rig_name}]")
+
+    rig_name = bpy.context.active_object.name
+    rig_bones = bpy.data.armatures[rig_name].bones
+    ScaleBones(rig_bones)
+    return
+
+def ScaleBones(filename):
+    print (f"scaling file [{filename}]")
+
+    rig_name = GetBaseName(filename)
+    rig_bones = bpy.data.armatures[rig_name].bones
+    ScaleBonesBase(rig_bones, filename)
+    return
+
+def ScaleBonesBase(rig_bones, filename):
+    print (f"scaling [{filename}]")
+
+    arm = bpy.data.objects.get(GetBaseName(filename))
+    # if there is no armature without file ext, then it doesn't have an Empty parent
+    if not arm:
+        arm = bpy.data.objects.get(filename)
+        
+    bpy.ops.object.select_all(action='DESELECT')
+    arm.select_set(True)
+    bpy.context.view_layer.objects.active = arm
+
+    print (f"arm [{arm.name}]")
+    bpy.ops.object.mode_set(mode="EDIT")
+    bone_to_select = "NeckPart2_M"
+    for bone in arm.data.edit_bones:
+        bone.select = False
+        bone.select_head = False
+        bone.select_tail = False
+
+    for bone in arm.data.edit_bones:
+        if bone.name == str(bone_to_select):
+            bone.select = True
+            bone.select_head = True
+            bone.select_tail = True
+            for child in bone.children_recursive:
+                child.select = True    
+                child.select_head = True
+                child.select_tail = True
+            if bone.name == str(bone_to_select):
+                arm.data.edit_bones.active = bone
+                posHead = arm.matrix_world @ bone.head.copy()
+
+    bpy.ops.transform.resize(
+        value=(scale_factor, scale_factor, scale_factor),
+        center_override=posHead,
+        orient_type='GLOBAL',
+        orient_matrix_type='GLOBAL',
+        constraint_axis=(False, False, False),
+        mirror=False,
+        proportional_edit_falloff='SMOOTH',
+        proportional_size=1,
+        release_confirm=True
+    )
+    return
+
+#----------------------------------------------------------------
+def ScaleBonesOrig():
+    bpy.context.scene.tool_settings.transform_pivot_point = 'ACTIVE_ELEMENT'
+
+    rig_name = bpy.context.active_object.name
+    print (f"scaling [{rig_name}]")
+    rig_bones = bpy.data.armatures[rig_name].bones
+
+    arm = bpy.data.objects[rig_name]
+    arm.select_set(True)
+    
+    bpy.ops.object.mode_set(mode="EDIT")
+    bpy.ops.armature.select_all(action="DESELECT")
+
+    bone_to_select = "NeckPart2_M"
+    posHead = {0,0,0}
+
+    for bone in arm.data.edit_bones:
+        if bone.name == str(bone_to_select):
+            bone.select = True
+            bone.select_head = True
+            bone.select_tail = True
+            for child in bone.children_recursive:
+                child.select = True    
+                child.select_head = True
+                child.select_tail = True
+            if bone.name == str(bone_to_select):
+                arm.data.edit_bones.active = bone
+                posHead = arm.matrix_world @ bone.head.copy()
+
+
+    bpy.ops.transform.resize(
+        value=(scale_factor, scale_factor, scale_factor),
+        center_override=posHead,
+        orient_type='GLOBAL',
+        orient_matrix_type='GLOBAL',
+        constraint_axis=(False, False, False),
+        mirror=False,
+        proportional_edit_falloff='SMOOTH',
+        proportional_size=1,
+        release_confirm=True
+    )
+    time.sleep(0.1)
+    return
+
+#----------------------------------------------------------------
+def ScaleHead(filename):
+    headObjects = [
+        "model:Eye_L",
+        "model:Eye_R",
+        "model:JawLower",
+        "model:JawUpper",
+        "model:KittyHead",
+        "model:Sklera_L",
+        "model:Sklera_R",
+        "model:Tongue",
+        ]
+        
+    rig_name = GetBaseName(filename)
+    rig_bones = bpy.data.armatures[rig_name].bones
+    bpy.context.scene.tool_settings.transform_pivot_point = 'INDIVIDUAL_ORIGINS'
+
+    arm = bpy.data.objects[rig_name]
+    arm.select_set(True)
+    
+    bpy.ops.object.mode_set(mode="EDIT")
+    bpy.ops.armature.select_all(action="DESELECT")
+
+    bone_to_select = "NeckPart2_M"
+    posHead = {0,0,0}
+    
+    for bone in arm.data.edit_bones:
+        if bone.name == str(bone_to_select):
+            if bone.name == str(bone_to_select):
+                posHead = arm.matrix_world @ bone.head.copy()    
+
+    print(f"posHead: {posHead}")
+    
+    bpy.ops.object.mode_set(mode="OBJECT")
+    bpy.ops.object.select_all(action="DESELECT")
+
+    for n in headObjects:
+        obj = bpy.data.objects[n]
+        obj.select_set(True)
+
+    bpy.ops.transform.resize(
+        value=(scale_factor, scale_factor, scale_factor),
+        center_override=posHead,
+        orient_type='GLOBAL',
+        orient_matrix_type='GLOBAL',
+        constraint_axis=(False, False, False),
+        mirror=False,
+        proportional_edit_falloff='SMOOTH',
+        proportional_size=1,
+        release_confirm=True
+    )
+    
+    time.sleep(0.1)
+    return
+
+#----------------------------------------------------------------
+def ScaleOther(filename):
+    
+    bpy.ops.object.mode_set(mode="OBJECT")
+    bpy.ops.object.select_all(action="DESELECT")
+    bpy.context.scene.tool_settings.transform_pivot_point = 'INDIVIDUAL_ORIGINS'
+
+    obj = bpy.data.objects[filename]
+    bpy.context.view_layer.objects.active = obj
+    obj.select_set(True)
+
+    bpy.ops.transform.resize(value=(scale_factor, scale_factor, scale_factor), orient_type='GLOBAL', orient_matrix=((1, 0, 0), (0, 1, 0), (0, 0, 1)), orient_matrix_type='GLOBAL', mirror=False, use_proportional_edit=False, proportional_edit_falloff='SMOOTH', proportional_size=1, use_proportional_connected=False, use_proportional_projected=False, snap=False, snap_elements={'INCREMENT'}, use_snap_project=False, snap_target='CLOSEST', use_snap_self=True, use_snap_edit=True, use_snap_nonedit=True, use_snap_selectable=False)
+    bpy.ops.object.transform_apply(scale=True)
+
+    time.sleep(0.1)
+    return
+
+
+#----------------------------------------------------------------
+def delete_objects_outliner():
+    area_type = 'OUTLINER'
+    areas  = [area for area in bpy.context.window.screen.areas if area.type == area_type]
+
+    if len(areas) <= 0:
+        raise Exception(f"Make sure an Area of type {area_type} is open or visible in your screen!")
+
+    with bpy.context.temp_override(area=areas[0]):
+        bpy.ops.outliner.delete(hierarchy=True)
+    return
+
+def delete_object_and_hierarchy_old(obj):
+    bpy.ops.object.select_all(action='DESELECT')
+    bpy.data.objects[obj.name].select_set(True)
+
+    for child in bpy.data.objects[obj.name].children_recursive:
+        child.select_set(True)
+        
+        
+    
+    bpy.context.view_layer.objects.active = obj
+    bpy.app.timers.register(delete_objects_outliner, first_interval=0.1)
+    time.sleep(1)
+    
+    return
+
+def delete_object_and_hierarchy(obj):
+    lst = [o for o in bpy.data.objects[obj.name].children_recursive]
+    while lst:
+        bpy.data.objects.remove(lst.pop())            
+
+    bpy.data.objects.remove(obj)            
+    
+    return
+
+    
+#----------------------------------------------------------------
+def DeleteArmature(filename):
+    try:
+        grp = bpy.data.objects.get(filename)
+        if grp:
+            delete_object_and_hierarchy(grp)
+            
+    except Exception as X:
+        print(f"{X}")
+        return
+    return
+
+def DeleteUnused():
+    try:
+        grp = bpy.data.objects.get("CutUpGeometry")
+        if grp:
+            print (f"cug [{grp.name}]")
+            delete_object_and_hierarchy(grp)
+            bpy.data.objects.remove(grp)            
+
+        garbage = bpy.data.collections["glTF_not_exported"]
+        if garbage:
+            print (f"garbage [{garbage.name}]")
+            obs = [o for o in garbage.objects if o.users == 1]
+            while obs:
+                bpy.data.objects.remove(obs.pop())            
+
+        lst = [o for o in bpy.data.objects if o.name.startswith("Icosphere")]
+        while lst:
+            bpy.data.objects.remove(lst.pop())            
+
+
+        arm = [a for a in bpy.data.armatures if a.users == 0]
+        while arm:
+            bpy.data.armatures.remove(arm.pop())            
+    
+        msh = [m for m in bpy.data.meshes if m.users == 0]
+        while msh:
+            bpy.data.meshes.remove(msh.pop())            
+
+        lst = [o for o in bpy.data.materials if o.users == 0]
+        while lst:
+            bpy.data.materials.remove(lst.pop())            
+
+        msh = [m for m in bpy.data.images if m.users == 0]
+        while msh:
+            bpy.data.images.remove(msh.pop())            
+
+        lst = [o for o in bpy.data.actions if o.users == 0]
+        while lst:
+            bpy.data.actions.remove(lst.pop())            
+
+    except Exception as X:
+        print(f"{X}")
+        return
+    return
+
+
+def select_object_and_hierarchy(obj):
+    print (f"obj [{obj.name}]")
+
+    for child in bpy.data.objects[obj.name].children_recursive:
+        print (f"  child [{child.name}]")
+    
+    for c in bpy.data.objects[obj.name].children_recursive:
+        c.select_set(True)
+
+    obj.select_set(True)    
+    return
+
+
+def FixScale(obj):
+    bpy.context.view_layer.objects.active = obj
+    #    bpy.ops.object.transform_apply(location = False, scale = True, rotation = False)    
+
+def ExportObject(directory, filename):
+    bpy.ops.object.mode_set(mode="OBJECT")
+    bpy.ops.object.select_all(action='DESELECT')
+    obj = bpy.data.objects[filename]
+    obj.select_set(True)
+    bpy.context.view_layer.objects.active = obj
+    select_object_and_hierarchy(obj)
+
+    if filename.endswith("glb"):
+        bpy.ops.export_scene.gltf(
+            filepath=directory + "\\" + filename, 
+            use_selection=True,
+            export_animation_mode = "ACTIVE_ACTIONS",
+            export_format="GLB")
+            
+    if filename.endswith("gltf"):
+        bpy.ops.export_scene.gltf(
+            filepath=directory + "\\" + filename, 
+            use_selection=True,
+            export_animation_mode = "ACTIVE_ACTIONS",
+            export_format="GLTF_SEPARATE")
+    time.sleep(0.1)
+    return
+
+#----------------------------------------------------------------
+# main
+#----------------------------------------------------------------
+
+print("")
+print("-------------------------")
+
+expressions = [
+    "KSA_Cat.Anim.ExpAwe1.glb",
+    "KSA_Cat.Anim.ExpAwe2.glb",
+    "KSA_Cat.Anim.ExpAngry1.glb",
+    "KSA_Cat.Anim.ExpAngry2.glb",
+    "KSA_Cat.Anim.ExpHappy1.glb",
+    "KSA_Cat.Anim.ExpHappy2.glb",
+    "KSA_Cat.Anim.ExpSad.glb",
+    "KSA_Cat.Anim.ExpScared.glb",
+    ]
+    
+animations = [
+    "KSA_Cat.Anim.Blink.glb",
+    "KSA_Cat.Anim.Idle.glb",
+    "KSA_Cat.Anim.MaskHelmet.glb",
+    "KSA_Cat.Anim.MMU_Idle_Action_01.glb",
+    "KSA_Cat.Anim.MMU_Idle_Action_02.glb",
+    "KSA_Cat.Anim.MMU_Idle_Default.glb",
+    "KSA_Cat.Anim.MMU_MoveBackwardLoop.glb",
+    "KSA_Cat.Anim.MMU_MoveDownLoop.glb",
+    "KSA_Cat.Anim.MMU_MoveForwardLoop.glb",
+    "KSA_Cat.Anim.MMU_MoveLeftLoop.glb",
+    "KSA_Cat.Anim.MMU_MoveRightLoop.glb",
+    "KSA_Cat.Anim.MMU_MoveUpLoop.glb",
+    "KSA_Cat.Anim.Run.glb",
+    ]    
+
+DeleteUnused()
+
+if True:
+    #DeleteArmature("KSA_Cat.Anim.Run.glb")
+    #obj = ImportFileIntoCollection("Animations", "D:\\Projects\\KSA\\Orig", "KSA_Cat.Anim.Run.glb")
+    #ScaleBones("KSA_Cat.Anim.Run.glb")
+    
+
+    DeleteArmature("KSA_Cat_Helmet.gltf")
+    obj = ImportFileIntoCollection("Meshes", "D:\\Projects\\KSA\\Orig\\KittenHelmet", "KSA_Cat_Helmet.gltf")
+    obj.select_set(True)
+    ScaleOther("KSA_Cat_Helmet.gltf")
+    ExportObject(f"D:\\Projects\\KSA\\Patched {scale_percent}\\KittenHelmet", "KSA_Cat_Helmet.gltf")
+
+    DeleteArmature("KSA_Cat_Visor.gltf")
+    obj = ImportFileIntoCollection("Meshes", "D:\\Projects\\KSA\\Orig\\KittenVisor", "KSA_Cat_Visor.gltf")
+    obj.select_set(True)
+    ScaleOther("KSA_Cat_Visor.gltf")
+    ExportObject(f"D:\\Projects\\KSA\\Patched {scale_percent}\\KittenVisor", "KSA_Cat_Visor.gltf")
+
+
+# import kitten, scale bones
+if True:
+    DeleteArmature("KSA_Cat.gltf")
+    obj = ImportFileIntoCollection("Meshes", "D:\\Projects\\KSA\\Orig\\Kitten", "KSA_Cat.gltf")
+    obj.select_set(True)
+    ScaleBones("KSA_Cat.gltf")
+    ScaleHead("KSA_Cat.gltf")
+
+# import expressions, scale bones
+if True:
+    for filename in expressions:
+        DeleteArmature(filename)
+
+        obj = ImportFileIntoCollection("Expressions", "D:\\Projects\\KSA\\Orig\\Expressions", filename)
+        FixScale(obj)
+        obj.select_set(True)
+        ScaleBones(filename)
+        
+
+# import animations, scale bones
+if True:
+    for filename in animations:
+        DeleteArmature(filename)
+
+        obj = ImportFileIntoCollection("Animations", "D:\\Projects\\KSA\\Orig", filename)
+        FixScale(obj)
+        obj.select_set(True)
+        ScaleBones(filename)
+        
+
+DeleteUnused()
+DeleteUnused()
+
+# export kitten
+if True:
+    filename = "KSA_Cat.gltf"
+    ExportObject(f"D:\\Projects\\KSA\\Patched {scale_percent}\\Kitten", filename)
+
+if True:
+    for filename in expressions:
+        ExportObject(f"D:\\Projects\\KSA\\Patched {scale_percent}\\Expressions", filename)
+        
+
+if True:
+    for filename in animations:
+        ExportObject(f"D:\\Projects\\KSA\\Patched {scale_percent}", filename)
+        
+
+print("DONE!!!")
+
