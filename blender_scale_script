@@ -1,8 +1,8 @@
 import bpy
 import time
+import shutil
 
-
-scale_percent = 90
+scale_percent = 100
 scale_factor = scale_percent / 100.0
 
 #----------------------------------------------------------------
@@ -431,74 +431,103 @@ animations = [
     "KSA_Cat.Anim.Run.glb",
     ]    
 
-DeleteUnused()
+hide_helmet = False
+compact_helmet = True
 
-if True:
-    #DeleteArmature("KSA_Cat.Anim.Run.glb")
-    #obj = ImportFileIntoCollection("Animations", "D:\\Projects\\KSA\\Orig", "KSA_Cat.Anim.Run.glb")
-    #ScaleBones("KSA_Cat.Anim.Run.glb")
-    
+for scale_percent in [75]:
+    scale_factor = scale_percent / 100.0
+    DeleteUnused()
 
-    DeleteArmature("KSA_Cat_Helmet.gltf")
-    obj = ImportFileIntoCollection("Meshes", "D:\\Projects\\KSA\\Orig\\KittenHelmet", "KSA_Cat_Helmet.gltf")
-    obj.select_set(True)
-    ScaleOther("KSA_Cat_Helmet.gltf")
-    ExportObject(f"D:\\Projects\\KSA\\Patched {scale_percent}\\KittenHelmet", "KSA_Cat_Helmet.gltf")
-
-    DeleteArmature("KSA_Cat_Visor.gltf")
-    obj = ImportFileIntoCollection("Meshes", "D:\\Projects\\KSA\\Orig\\KittenVisor", "KSA_Cat_Visor.gltf")
-    obj.select_set(True)
-    ScaleOther("KSA_Cat_Visor.gltf")
-    ExportObject(f"D:\\Projects\\KSA\\Patched {scale_percent}\\KittenVisor", "KSA_Cat_Visor.gltf")
+    patchName = ("NH Patched " if hide_helmet else "Patched ") + str(scale_percent)
+    print(patchName)
 
 
-# import kitten, scale bones
-if True:
-    DeleteArmature("KSA_Cat.gltf")
-    obj = ImportFileIntoCollection("Meshes", "D:\\Projects\\KSA\\Orig\\Kitten", "KSA_Cat.gltf")
-    obj.select_set(True)
-    ScaleBones("KSA_Cat.gltf")
-    ScaleHead("KSA_Cat.gltf")
+    if True:
+        #DeleteArmature("KSA_Cat.Anim.Run.glb")
+        #obj = ImportFileIntoCollection("Animations", "D:\\Projects\\KSA\\Orig", "KSA_Cat.Anim.Run.glb")
+        #ScaleBones("KSA_Cat.Anim.Run.glb")
+        
+        if compact_helmet:
+            DeleteArmature("KSA_Cat_HelmetCompact.gltf")
+            obj = ImportFileIntoCollection("Meshes", "D:\\Projects\\KSA\\", "KSA_Cat_HelmetCompact.gltf")
+            obj.select_set(True)
+            if hide_helmet:
+                scale_factor = 0.0001
+            ScaleOther("KSA_Cat_HelmetCompact.gltf")
+            scale_factor = scale_percent / 100.0
+            ExportObject(f"D:\\Projects\\KSA\\{patchName}\\KittenHelmet", "KSA_Cat_HelmetCompact.gltf")
+            shutil.move(f"D:\\Projects\\KSA\\{patchName}\\KittenHelmet\\KSA_Cat_HelmetCompact.gltf", f"D:\\Projects\\KSA\\{patchName}\\KittenHelmet\\KSA_Cat_Helmet.gltf")
+        else:
+            DeleteArmature("KSA_Cat_Helmet.gltf")
+            obj = ImportFileIntoCollection("Meshes", "D:\\Projects\\KSA\\Orig\\KittenHelmet", "KSA_Cat_Helmet.gltf")
+            obj.select_set(True)
+            if hide_helmet:
+                scale_factor = 0.0001
+            ScaleOther("KSA_Cat_Helmet.gltf")
+            scale_factor = scale_percent / 100.0
+            ExportObject(f"D:\\Projects\\KSA\\{patchName}\\KittenHelmet", "KSA_Cat_Helmet.gltf")
 
-# import expressions, scale bones
-if True:
-    for filename in expressions:
-        DeleteArmature(filename)
-
-        obj = ImportFileIntoCollection("Expressions", "D:\\Projects\\KSA\\Orig\\Expressions", filename)
-        FixScale(obj)
+        DeleteArmature("KSA_Cat_Visor.gltf")
+        obj = ImportFileIntoCollection("Meshes", "D:\\Projects\\KSA\\Orig\\KittenVisor", "KSA_Cat_Visor.gltf")
         obj.select_set(True)
-        ScaleBones(filename)
-        
+        if hide_helmet:
+            scale_factor = 0.0001
+        ScaleOther("KSA_Cat_Visor.gltf")
+        scale_factor = scale_percent / 100.0
+        ExportObject(f"D:\\Projects\\KSA\\{patchName}\\KittenVisor", "KSA_Cat_Visor.gltf")
 
-# import animations, scale bones
-if True:
-    for filename in animations:
-        DeleteArmature(filename)
 
-        obj = ImportFileIntoCollection("Animations", "D:\\Projects\\KSA\\Orig", filename)
-        FixScale(obj)
+    # import kitten, scale bones
+    if True:
+        DeleteArmature("KSA_Cat.gltf")
+        obj = ImportFileIntoCollection("Meshes", "D:\\Projects\\KSA\\Orig\\Kitten", "KSA_Cat.gltf")
         obj.select_set(True)
-        ScaleBones(filename)
+        ScaleBones("KSA_Cat.gltf")
+        ScaleHead("KSA_Cat.gltf")
+
+    # import expressions, scale bones
+    if True:
+        for filename in expressions:
+            DeleteArmature(filename)
+
+            obj = ImportFileIntoCollection("Expressions", "D:\\Projects\\KSA\\Orig\\Expressions", filename)
+            FixScale(obj)
+            obj.select_set(True)
+            ScaleBones(filename)
+            
+
+    # import animations, scale bones
+    if True:
+        for filename in animations:
+            DeleteArmature(filename)
+
+            obj = ImportFileIntoCollection("Animations", "D:\\Projects\\KSA\\Orig", filename)
+            FixScale(obj)
+            obj.select_set(True)
+            ScaleBones(filename)
+            
+
+    DeleteUnused()
+    DeleteUnused()
+
+    # export kitten
+    if True:
+        filename = "KSA_Cat.gltf"
+        ExportObject(f"D:\\Projects\\KSA\\{patchName}\\Kitten", filename)
+
+    if True:
+        for filename in expressions:
+            ExportObject(f"D:\\Projects\\KSA\\{patchName}\\Expressions", filename)
+            
+
+    if True:
+        for filename in animations:
+            if hide_helmet and filename == "KSA_Cat.Anim.MaskHelmet.glb":
+                continue
+            ExportObject(f"D:\\Projects\\KSA\\{patchName}", filename)
         
-
-DeleteUnused()
-DeleteUnused()
-
-# export kitten
-if True:
-    filename = "KSA_Cat.gltf"
-    ExportObject(f"D:\\Projects\\KSA\\Patched {scale_percent}\\Kitten", filename)
-
-if True:
-    for filename in expressions:
-        ExportObject(f"D:\\Projects\\KSA\\Patched {scale_percent}\\Expressions", filename)
+        if hide_helmet:    
+            shutil.copyfile(f"D:\\Projects\\KSA\\{patchName}\\KSA_Cat.Anim.Idle.glb", f"D:\\Projects\\KSA\\{patchName}\\KSA_Cat.Anim.MaskHelmet.glb")
         
-
-if True:
-    for filename in animations:
-        ExportObject(f"D:\\Projects\\KSA\\Patched {scale_percent}", filename)
-        
-
 print("DONE!!!")
 
